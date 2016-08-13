@@ -11,6 +11,8 @@ extern crate hyper;
 extern crate sodiumoxide;
 extern crate rustc_serialize;
 
+extern crate baton;
+
 use amqp::{Session, Options, Table, Basic, protocol, Channel, ConsumerCallBackFn};
 use std::default::Default;
 use std::str;
@@ -20,15 +22,7 @@ use std::io::{Write, Read};
 use rustc_serialize::hex::ToHex;
 use sodiumoxide::crypto::hash::sha256;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct Message {
-    #[serde(default,rename="type")]
-    msg_type: String,
-    sha: Option<String>,
-    branch: Option<String>,
-    url: Option<String>,
-    checksum_url: Option<String>,
-}
+use baton::message::Message;
 
 fn start(routing_key: &str) {
     println!("Starting {:?}", routing_key);

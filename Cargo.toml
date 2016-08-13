@@ -3,6 +3,15 @@ name = "baton-deploy"
 version = "0.1.0"
 authors = ["Thom May <thom@may.lt>"]
 
+[lib]
+name = "baton"
+path = "src/baton/lib.rs"
+
+[[bin]]
+name = "baton-deploy"
+doc = false
+test = false
+
 [dependencies]
 amqp = "0.0.16"
 env_logger = "0.3"
