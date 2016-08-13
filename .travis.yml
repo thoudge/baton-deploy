@@ -3,3 +3,7 @@ sudo: false
 rust: 
   - nightly
 
+addons:
+  apt:
+    packages:
+      - libsodium-dev
