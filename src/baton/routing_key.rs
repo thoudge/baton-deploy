@@ -18,6 +18,10 @@ impl RoutingKey {
                     fqdn: None,
                 })
             }
+            // FIXME: This is not actually right, and in the long term we should probably change
+            // how the routing key is structured. Because how can you tell if you've created a
+            // consumer with "test.example.com" as the key - ie, just the fqdn - or
+            // "test.dev.test.example.com" - app, env, fqdn.
             3...99 => {
                 Ok(RoutingKey {
                     app: Some(parts[0].to_owned()),
