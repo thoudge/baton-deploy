@@ -1,0 +1,11 @@
+[package]
+name = "baton-deploy"
+version = "0.1.0"
+authors = ["Thom May <thom@may.lt>"]
+
+[dependencies]
+amqp = "0.0.16"
+env_logger = "0.3"
+serde = "0.8"
+serde_json = "0.8"
+serde_macros = "0.8"
