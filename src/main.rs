@@ -7,9 +7,18 @@ extern crate env_logger;
 extern crate serde;
 extern crate serde_json;
 
+extern crate hyper;
+extern crate sodiumoxide;
+extern crate rustc_serialize;
+
 use amqp::{Session, Options, Table, Basic, protocol, Channel, ConsumerCallBackFn};
 use std::default::Default;
 use std::str;
+use hyper::client::Client;
+use std::fs::File;
+use std::io::{Write, Read};
+use rustc_serialize::hex::ToHex;
+use sodiumoxide::crypto::hash::sha256;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct Message {
@@ -17,12 +26,53 @@ struct Message {
     msg_type: String,
     sha: Option<String>,
     branch: Option<String>,
+    url: Option<String>,
+    checksum_url: Option<String>,
+}
+
+fn start(routing_key: &str) {
+    println!("Starting {:?}", routing_key);
+}
+
+fn stop(routing_key: &str) {
+    println!("Stopping {:?}", routing_key);
+}
+
+fn deploy(routing_key: &str, url: &str, checksum_url: &str) {
+    let client = Client::new();
+    let mut result = client.get(url).send().unwrap();
+
+    let mut buffer = File::create("foo.txt").unwrap();
+    let mut response = String::new();
+
+    result.read_to_string(&mut response);
+
+    let digest = sha256::hash(response.as_ref());
+
+    println!("got a digest of {:?}", digest.as_ref().to_hex());
+    buffer.write(response.as_ref());
+
+    println!("Deploying {:?} from {}, checksum {}",
+             routing_key,
+             url,
+             checksum_url);
 }
 
 fn process(message: Message, routing_key: &str) {
-    println!("Processing message {:?} with key: {:?}",
-             message,
-             routing_key);
+    match message.msg_type.as_ref() {
+        "deploy" => {
+            deploy(routing_key,
+                   message.url.unwrap().as_ref(),
+                   message.checksum_url.unwrap().as_ref())
+        }
+        "start" => start(routing_key),
+        "stop" => stop(routing_key),
+        _ => {
+            println!("Processing message {:?} with key: {:?}",
+                     message,
+                     routing_key)
+        }
+    };
 }
 
 fn consumer_function(_: &mut Channel,
