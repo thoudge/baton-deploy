@@ -1,9 +1,10 @@
 language: rust
-sudo: false
 rust: 
   - nightly
+sudo: required
+dist: trusty
 
-addons:
-  apt:
-    packages:
-      - libsodium-dev
+before_install:
+  - sudo add-apt-repository ppa:chris-lea/libsodium -y
+  - sudo apt-get -q update
+  - sudo apt-get install -qq -y libsodium-dev
