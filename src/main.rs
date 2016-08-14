@@ -1,11 +1,13 @@
 extern crate env_logger;
 extern crate amqp;
 extern crate rustc_serialize;
+extern crate toml;
+
+use std::collections::HashMap;
+use std::str;
 
 use amqp::{Session, Table, Basic, protocol, Channel, Consumer};
 use rustc_serialize::json;
-use std::str;
-use std::collections::HashMap;
 
 struct DeployConsumer {
     app: String
@@ -25,10 +27,19 @@ impl Consumer for DeployConsumer {
 }
 
 fn main() {
+    let toml = r#"
+        amqp_url = "amqp://localhost//"
+        fqdn = "localhost"
+        environment = "development"
+        apps = ["test"]
+    "#;
+
+    let configuration = toml::Parser::new(toml).parse().unwrap();
+    let amqp_url = configuration.get("amqp_url").and_then(|value| value.as_str()).unwrap_or("amqp://localhost//");
+    let environment = configuration.get("environment").and_then(|value| value.as_str()).unwrap_or("development");
+    let fqdn = configuration.get("fqdn").and_then(|value| value.as_str()).unwrap_or("localhost");
+
     let apps = vec!["test"];
-    let environment = "development";
-    let fqdn = "localhost";
-    let amqp_url = "amqp://localhost//";
 
     env_logger::init().expect("Can't initialize logger");
 

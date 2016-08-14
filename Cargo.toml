@@ -7,3 +7,4 @@ authors = ["Thom May <thom@may.lt>", "Paul Mucur <mudge@mudge.name>"]
 amqp = "0.0.16"
 env_logger = "0.3"
 rustc-serialize = "0.3"
+toml = "0.2"
