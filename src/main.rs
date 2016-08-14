@@ -1,32 +1,11 @@
-#![feature(custom_derive, plugin)]
-#![plugin(serde_macros)]
-
 extern crate env_logger;
 extern crate amqp;
-extern crate serde;
-extern crate serde_json;
+extern crate rustc_serialize;
 
 use amqp::{Session, Table, Basic, protocol, Channel, Consumer};
+use rustc_serialize::json;
 use std::str;
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct Message {
-    #[serde(default,rename="type")]
-    msg_type: String,
-    sha: Option<String>,
-    branch: Option<String>,
-    url: Option<String>,
-    checksum_url: Option<String>,
-}
-
-fn process(app: &str, message: Message) {
-    match message.msg_type.as_ref() {
-        "deploy" => println!("Deploying {:?}: {:?}", app, message),
-        "start" => println!("Starting {:?}: {:?}", app, message),
-        "stop" => println!("Stopping {:?}: {:?}", app, message),
-        _ => println!("Unsupported message {:?}: {:?}", app, message),
-    };
-}
+use std::collections::HashMap;
 
 struct DeployConsumer {
     app: String
@@ -36,10 +15,11 @@ impl Consumer for DeployConsumer {
     fn handle_delivery(&mut self, _: &mut Channel, _: protocol::basic::Deliver,
                        _: protocol::basic::BasicProperties, body: Vec<u8>) {
         if let Ok(payload) = str::from_utf8(&body) {
-            match serde_json::from_str::<Message>(payload) {
-                Ok(message) => process(self.app.as_ref(), message),
-                Err(_) => println!("Ignoring invalid payload: {:?}", payload),
-            };
+            if let Ok(message) = json::decode::<HashMap<String, String>>(payload) {
+                println!("Got message {:?}", message);
+            } else {
+                println!("Ignoring payload {:?}", payload);
+            }
         };
     }
 }
@@ -55,12 +35,12 @@ fn main() {
     let mut channel = session.open_channel(1).expect("Error opening AMQP channel 1");
 
     for app in &apps {
-        channel.exchange_declare("exchange_in", "direct", false, false, false, false, false,
+        channel.exchange_declare("baton_deploy_in", "direct", false, false, false, false, false,
                                  Table::new())
-            .and_then(|_| channel.queue_declare("", false, false, true, false, false, Table::new()))
-            .and_then(|_| channel.queue_bind("", "exchange_in", format!("{}.{}", app, environment).as_ref(), false, Table::new()))
-            .and_then(|_| channel.queue_bind("", "exchange_in", format!("{}.{}.{}", app, environment, fqdn).as_ref(), false, Table::new()))
-            .and_then(|_| channel.basic_consume(DeployConsumer { app: app.to_string() }, "", "", false, false, false,
+            .and_then(|_| channel.queue_declare(app.clone(), false, false, true, false, false, Table::new()))
+            .and_then(|_| channel.queue_bind(app.clone(), "baton_deploy_in", format!("{}.{}", app, environment).as_ref(), false, Table::new()))
+            .and_then(|_| channel.queue_bind(app.clone(), "baton_deploy_in", format!("{}.{}.{}", app, environment, fqdn).as_ref(), false, Table::new()))
+            .and_then(|_| channel.basic_consume(DeployConsumer { app: app.to_string() }, app.clone(), "", false, false, false,
                               false, Table::new()))
             .expect("Could not set up exchange, queues and consumers");
     }
