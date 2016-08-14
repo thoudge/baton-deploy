@@ -1,5 +1,3 @@
-use std::error::Error;
-
 struct RoutingKey {
     pub app: Option<String>,
     pub environment: Option<String>,
@@ -7,29 +5,13 @@ struct RoutingKey {
 }
 
 impl RoutingKey {
-    pub fn parse(routing_key: &str) -> Result<RoutingKey, Box<Error>> {
-        let parts: Vec<&str> = routing_key.split('.').collect();
-        let count = parts.len();
-        match count {
-            2 => {
-                Ok(RoutingKey {
-                    app: Some(parts[0].to_owned()),
-                    environment: Some(parts[1].to_owned()),
-                    fqdn: None,
-                })
-            }
-            // FIXME: This is not actually right, and in the long term we should probably change
-            // how the routing key is structured. Because how can you tell if you've created a
-            // consumer with "test.example.com" as the key - ie, just the fqdn - or
-            // "test.dev.test.example.com" - app, env, fqdn.
-            3...99 => {
-                Ok(RoutingKey {
-                    app: Some(parts[0].to_owned()),
-                    environment: Some(parts[1].to_owned()),
-                    fqdn: Some(parts[2..count].join(".").to_owned()),
-                })
-            }
-            _ => panic!("Something strange happend with the pattern matching"),
+    pub fn parse(routing_key: &str) -> RoutingKey {
+        let mut parts = routing_key.splitn(3, '.').map(|i| String::from(i));
+
+        RoutingKey {
+            app: parts.next(),
+            environment: parts.next(),
+            fqdn: parts.next(),
         }
     }
 }
@@ -39,23 +21,30 @@ mod tests {
     use super::RoutingKey;
 
     #[test]
-    fn test_parse_routing_key_with_app_and_env() {
-        let routing_key = "test.production";
-        let result = RoutingKey::parse(routing_key).unwrap();
+    fn test_parse_app_from_routing_key() {
+        let result = RoutingKey::parse("test.production.example.com");
+
         assert_eq!(result.app.unwrap(), "test")
     }
 
     #[test]
-    fn test_parse_routing_key_with_app_env_fqdn() {
-        let routing_key = "test.production.test.example.com";
-        let result = RoutingKey::parse(routing_key).unwrap();
-        assert_eq!(result.fqdn.unwrap(), "test.example.com")
+    fn test_parse_environment_from_routing_key() {
+        let result = RoutingKey::parse("test.production.example.com");
+
+        assert_eq!(result.environment.unwrap(), "production")
     }
 
     #[test]
-    fn test_parse_routing_key_with_app_env_long_fqdn() {
-        let routing_key = "test.production.test.prod.aws.example.com";
-        let result = RoutingKey::parse(routing_key).unwrap();
-        assert_eq!(result.fqdn.unwrap(), "test.prod.aws.example.com")
+    fn test_parse_fqdn_from_routing_key() {
+        let result = RoutingKey::parse("test.production.example.com");
+
+        assert_eq!(result.fqdn.unwrap(), "example.com")
+    }
+
+    #[test]
+    fn test_parse_no_fqdn_from_routing_key() {
+        let result = RoutingKey::parse("test.production");
+
+        assert_eq!(result.fqdn, None)
     }
 }

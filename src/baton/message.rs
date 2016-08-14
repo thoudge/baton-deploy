@@ -1,4 +1,3 @@
-
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Message {
     #[serde(default,rename="type")]
