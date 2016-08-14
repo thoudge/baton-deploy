@@ -77,7 +77,7 @@ fn consumer_function(_: &mut Channel,
     if let Ok(payload) = str::from_utf8(&body) {
         match serde_json::from_str::<Message>(payload) {
             Ok(message) => process(message, routing_key),
-            Err(err) => println!("Ignoring invalid payload: {:?}", payload),
+            Err(_) => println!("Ignoring invalid payload: {:?}", payload),
         };
     };
 }
@@ -85,9 +85,8 @@ fn consumer_function(_: &mut Channel,
 fn main() {
     env_logger::init().unwrap();
     let mut session = Session::new(Options { vhost: "/", ..Default::default() })
-        .ok()
         .expect("Can't create session");
-    let mut channel = session.open_channel(1).ok().expect("Error opening channel 1");
+    let mut channel = session.open_channel(1).expect("Error opening channel 1");
 
     channel.exchange_declare("exchange_in",
                              "direct",
