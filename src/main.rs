@@ -28,19 +28,23 @@ fn main() {
     let apps = vec!["test"];
     let environment = "development";
     let fqdn = "localhost";
+    let amqp_url = "amqp://localhost//";
 
     env_logger::init().expect("Can't initialize logger");
 
-    let mut session = Session::open_url("amqp://localhost//").expect("Can't create AMQP session");
+    let mut session = Session::open_url(amqp_url).expect("Can't create AMQP session");
     let mut channel = session.open_channel(1).expect("Error opening AMQP channel 1");
 
-    for app in &apps {
+    for app in apps {
+        let environment_key = format!("{}.{}", app, environment);
+        let instance_key = format!("{}.{}.{}", app, environment, fqdn);
+
         channel.exchange_declare("baton_deploy_in", "direct", false, false, false, false, false,
                                  Table::new())
-            .and_then(|_| channel.queue_declare(app.clone(), false, false, true, false, false, Table::new()))
-            .and_then(|_| channel.queue_bind(app.clone(), "baton_deploy_in", format!("{}.{}", app, environment).as_ref(), false, Table::new()))
-            .and_then(|_| channel.queue_bind(app.clone(), "baton_deploy_in", format!("{}.{}.{}", app, environment, fqdn).as_ref(), false, Table::new()))
-            .and_then(|_| channel.basic_consume(DeployConsumer { app: app.to_string() }, app.clone(), "", false, false, false,
+            .and_then(|_| channel.queue_declare(app, false, false, true, false, false, Table::new()))
+            .and_then(|_| channel.queue_bind(app, "baton_deploy_in", &environment_key, false, Table::new()))
+            .and_then(|_| channel.queue_bind(app, "baton_deploy_in", &instance_key, false, Table::new()))
+            .and_then(|_| channel.basic_consume(DeployConsumer { app: app.to_string() }, app, "", false, false, false,
                               false, Table::new()))
             .expect("Could not set up exchange, queues and consumers");
     }
