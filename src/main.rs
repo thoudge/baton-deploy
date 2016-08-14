@@ -11,8 +11,7 @@ extern crate hyper;
 extern crate sodiumoxide;
 extern crate rustc_serialize;
 
-use amqp::{Session, Options, Table, Basic, protocol, Channel, ConsumerCallBackFn};
-use std::default::Default;
+use amqp::{Session, Table, Basic, protocol, Channel, ConsumerCallBackFn};
 use std::str;
 use hyper::client::Client;
 use std::fs::File;
@@ -77,7 +76,7 @@ fn process(message: Message, routing_key: &str) {
 
 fn consumer_function(_: &mut Channel,
                      deliver: protocol::basic::Deliver,
-                     headers: protocol::basic::BasicProperties,
+                     _: protocol::basic::BasicProperties,
                      body: Vec<u8>) {
     let routing_key = &deliver.routing_key;
     if let Ok(payload) = str::from_utf8(&body) {
@@ -89,37 +88,21 @@ fn consumer_function(_: &mut Channel,
 }
 
 fn main() {
-    env_logger::init().unwrap();
-    let mut session = Session::new(Options { vhost: "/", ..Default::default() })
-        .expect("Can't create session");
-    let mut channel = session.open_channel(1).expect("Error opening channel 1");
+    env_logger::init().expect("Can't initialize logger");
+    let mut session = Session::open_url("amqp://localhost//").expect("Can't create AMQP session");
+    let mut channel = session.open_channel(1).expect("Error opening AMQP channel 1");
 
-    channel.exchange_declare("exchange_in",
-                             "direct",
-                             false,
-                             false,
-                             false,
-                             false,
-                             false,
-                             Table::new());
-    channel.queue_declare("", false, false, true, false, false, Table::new());
-    channel.queue_bind("", "exchange_in", "test.development", false, Table::new());
-    channel.queue_bind("",
-                       "exchange_in",
-                       "test.development.localhost",
-                       false,
-                       Table::new());
-    channel.basic_consume(consumer_function as ConsumerCallBackFn,
-                          "",
-                          "",
-                          false,
-                          false,
-                          false,
-                          false,
-                          Table::new());
+    channel.exchange_declare("exchange_in", "direct", false, false, false, false, false,
+                             Table::new())
+        .and_then(|_| channel.queue_declare("", false, false, true, false, false, Table::new()))
+        .and_then(|_| channel.queue_bind("", "exchange_in", "test.development", false, Table::new()))
+        .and_then(|_| channel.queue_bind("", "exchange_in", "test.development.localhost", false, Table::new()))
+        .and_then(|_| channel.basic_consume(consumer_function as ConsumerCallBackFn, "", "", false, false, false,
+                          false, Table::new()))
+        .expect("Could not set up exchange, queues and consumers");
 
     channel.start_consuming();
 
-    channel.close(200, "Bye").unwrap();
-    session.close(200, "Good Bye");
+    channel.close(200, "Closing channel").expect("Couldn't close AMQP channel 1");
+    session.close(200, "Closing session");
 }
